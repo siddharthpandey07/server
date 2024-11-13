@@ -19,7 +19,7 @@ jobs:
         node-version: '14'
 
     - name: Install dependencies
-      run: npm install  
+      run: npm install  # Use npm install instead of npm ci
 
     - name: Add SSH key to known hosts
       run: |
@@ -33,8 +33,15 @@ jobs:
         VM_HOST: ${{ secrets.VM_HOST }}
         VM_USER: ${{ secrets.VM_USER }}
       run: |
+        # Save the SSH private key to a file
         echo "$SSH_PRIVATE_KEY" > /tmp/private_key
         chmod 600 /tmp/private_key
+        
+        # SSH to the VM to stop any old processes if running
         ssh -o StrictHostKeyChecking=no -i /tmp/private_key $VM_USER@$VM_HOST "sudo pkill -f 'node index.js' || true"
+        
+        # Copy the project files to the VM
         scp -i /tmp/private_key -r . $VM_USER@$VM_HOST:/path/to/deploy
+
+        # Start the new deployment on the VM
         ssh -i /tmp/private_key $VM_USER@$VM_HOST "cd /path/to/deploy && sudo nohup node index.js > output.log 2>&1 &"
