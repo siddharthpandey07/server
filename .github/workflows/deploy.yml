@@ -1,47 +1,60 @@
-name: Deploy API
+name: Deploy API to VM
 
 on:
   push:
     branches:
-      - main
+      - main  # Adjust based on the branch you want to trigger the deployment
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # Using the latest Ubuntu runner
 
     steps:
+    # Step 1: Checkout the code from the repository
     - name: Checkout code
       uses: actions/checkout@v2
 
+    # Step 2: Set up Node.js (You can use a specific version like '14', '16', etc.)
     - name: Set up Node.js
       uses: actions/setup-node@v2
       with:
         node-version: '14'
 
+    # Step 3: Install dependencies (use npm install instead of npm ci for flexibility)
     - name: Install dependencies
-      run: npm install  # Use npm install instead of npm ci
+      run: npm install  # or use npm ci if you prefer stricter installation
 
+    # Step 4: Add SSH key to known hosts
     - name: Add SSH key to known hosts
       run: |
         mkdir -p ~/.ssh
-        ssh-keyscan -H $VM_HOST >> ~/.ssh/known_hosts
+        # Ensure the VM host is correctly passed to ssh-keyscan and add it to the known_hosts file
+        ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
         chmod 600 ~/.ssh/known_hosts
 
+    # Step 5: Deploy the API to the VM
     - name: Deploy to VM
       env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        VM_HOST: ${{ secrets.VM_HOST }}
-        VM_USER: ${{ secrets.VM_USER }}
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}  # Secret containing the SSH private key
+        VM_HOST: ${{ secrets.VM_HOST }}  # Secret containing the VM host/IP
+        VM_USER: ${{ secrets.VM_USER }}  # Secret containing the VM username
       run: |
-        # Save the SSH private key to a file
+        # Write SSH private key to file
         echo "$SSH_PRIVATE_KEY" > /tmp/private_key
         chmod 600 /tmp/private_key
         
-        # SSH to the VM to stop any old processes if running
+        # Stop any existing node process running the API (gracefully, to avoid downtime)
         ssh -o StrictHostKeyChecking=no -i /tmp/private_key $VM_USER@$VM_HOST "sudo pkill -f 'node index.js' || true"
-        
-        # Copy the project files to the VM
+
+        # Copy files to VM
         scp -i /tmp/private_key -r . $VM_USER@$VM_HOST:/path/to/deploy
 
-        # Start the new deployment on the VM
+        # Start the new API process in the background
         ssh -i /tmp/private_key $VM_USER@$VM_HOST "cd /path/to/deploy && sudo nohup node index.js > output.log 2>&1 &"
+        
+        # Optionally, check that the API is running (can be expanded to any health check)
+        ssh -i /tmp/private_key $VM_USER@$VM_HOST "curl -s http://localhost:80/sayHello" || exit 1
+
+    # Step 6: Clean up private key file to avoid leaving sensitive information exposed
+    - name: Clean up private key
+      run: rm -f /tmp/private_key
