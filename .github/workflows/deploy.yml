@@ -29,22 +29,22 @@ jobs:
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H $VM_HOST >> ~/.ssh/known_hosts
         
-        # Deploy new version
+  
         ssh $VM_USER@$VM_HOST << EOF
           mkdir -p ~/app-new
           scp -r ./* $VM_USER@$VM_HOST:~/app-new
           pm2 start ~/app-new/server.js --name api-new || pm2 restart api-new
           
-          # Wait for new instance to be ready
+          
           sleep 5
           
-          # Switch to new version
+         
           pm2 stop api || true
           mv ~/app ~/app-old || true
           mv ~/app-new ~/app
           pm2 delete api-new
           pm2 start ~/app/server.js --name api
           
-          # Clean up old version
+      
           rm -rf ~/app-old
         EOF
