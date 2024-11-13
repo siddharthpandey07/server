@@ -37,13 +37,9 @@ jobs:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}  # Secret containing the SSH private key
         VM_HOST: ${{ secrets.VM_HOST }}  # Secret containing the VM host/IP
         VM_USER: ${{ secrets.VM_USER }}  # Secret containing the VM username
-      run: |
-        # Write SSH private key to file
-        echo "$SSH_PRIVATE_KEY" > /tmp/private_key
-        chmod 600 /tmp/private_key
+     
         
-        # Stop any existing node process running the API (gracefully, to avoid downtime)
-        ssh -o StrictHostKeyChecking=no -i /tmp/private_key $VM_USER@$VM_HOST "sudo pkill -f 'node index.js' || true"
+       
 
         # Copy files to VM
         scp -i /tmp/private_key -r . $VM_USER@$VM_HOST:/path/to/deploy
